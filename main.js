@@ -14,21 +14,12 @@ var Game = {
 	gameHeight:			WORLD_HEIGHT,
 	gameWidth:			WORLD_WIDTH,
 	
-	map:	//Map is size 10
-	[		//We will limit each array to size 10
-		[0,0,0,0,0,0,0,0,0,0],
-		[0,0,0,0,0,0,0,0,0,0],
-		[0,0,0,0,0,0,0,0,0,0],
-		[0,0,0,0,0,0,0,0,0,0],
-		[0,0,0,0,0,0,0,0,0,0],
-		[0,0,0,0,0,0,0,0,0,0],
-		[0,0,0,0,0,0,0,0,0,0],
-		[0,0,0,0,0,0,0,0,0,0],
-		[0,0,0,0,0,0,0,0,0,0],
-		[0,0,0,0,0,0,0,0,0,0]
-	],		//0, 1, 2 --- Empty, Player, Snake
+	map:	[], //Map is generated in Init() according to mapHeight and mapWidth.
+			//0, 1, 2 --- Empty, Player, Snake
 	mapX:		0,
 	mapY:		0,
+	mapHeight:	30, //Map height in squares (one square is 32*32 pixels).
+	mapWidth:	40, //Map width in squares. If you change mapHeight or mapWidth, make sure to change WORLD_HEIGHT and WORLD_WIDTH respectively as well.
 	
 	playerX:	0,
 	playerY:	0, //Player starts in top left
@@ -43,7 +34,15 @@ var Game = {
 	Init: function() {
 		Game.gameCanvas = document.getElementById(CANVAS_GAME_ID);
 		Game.ctx = Game.gameCanvas.getContext("2d");
-		
+		//Map initialisation
+		for (i = 0; i < Game.mapHeight; i++) { //Create as many rows as is the map's height
+			Game.map.push([]);
+			
+			for (j = 0; j < Game.mapWidth; j++) { //Inside each row, create as many empty squares as is the map's width
+				Game.map[i].push(0);
+			}
+		}
+		//Player initialisation
 		Game.map[Game.playerY][Game.playerX] = 1;
 		
 		//Snake Init
@@ -66,9 +65,9 @@ var Game = {
 	
 	DrawScreen: function() {
 		Game.ctx.fillStyle	= "#FFF";
-        Game.ctx.fillRect(0, 0, Game.gameWidth, Game.gameHeight);
-		for( var i = 0; i < 10; i++ ) {
-			for( var j = 0; j < 10; j++ ) {
+        	Game.ctx.fillRect(0, 0, Game.gameWidth, Game.gameHeight);
+		for( var i = 0; i < Game.mapHeight; i++ ) {
+			for( var j = 0; j < Game.mapWidth; j++ ) {
 				//BACKGROUND
 				if( Game.map[i][j] === 0 ) {
 					Game.ctx.fillStyle = "#000";
@@ -122,14 +121,14 @@ var Game = {
 		if( dir === 0 ) { 	//Bounds check Y
 			if( Game.playerY < 0 ) {
 				Game.playerY = 0;
-			} else if( Game.playerY > 9 ) {
-				Game.playerY = 9;
+			} else if( Game.playerY > Game.mapHeight-1) { //If player is trying to move out of bounds (vertically), stop it
+				Game.playerY = Game.mapHeight-1;
 			}
 		} else {			//Bounds check X
 			if( Game.playerX < 0 ) {
 				Game.playerX = 0;
-			} else if( Game.playerX > 9 ) {
-				Game.playerX = 9;
+			} else if( Game.playerX > Game.mapWidth-1 ) { //If player is trying to move out of bounds (horizontally), stop it
+				Game.playerX = Game.mapWidth-1;
 			}
 		}
 	},
