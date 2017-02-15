@@ -1,7 +1,14 @@
+/*
+TODO:
+Add a simple point system and show the current points and the current game speed to the player
+Make the player drop food for the snake when the snake gets too close
+Make the snake grow when it eats food
+*/
+
 //### START OF GLOBAL VARIABLES
 var CANVAS_GAME_ID			= "canvasGame";
-var WORLD_HEIGHT			= 720;
-var WORLD_WIDTH				= 1280;
+var WORLD_HEIGHT			= 960; //Should be divisible by 32
+var WORLD_WIDTH				= 1280; //Should be divisible by 32
 var OK_MIN_SCREEN_RATIO		= 1.33;  
 var OK_MAX_SCREEN_RATIO		= 1.35;
 var MAX_BODIES				= 10;
@@ -15,26 +22,33 @@ var Game = {
 	gameWidth:			WORLD_WIDTH,
 	
 	map:	[], //Map is generated in Init() according to mapHeight and mapWidth.
-			//0, 1, 2 --- Empty, Player, Snake
+				//0, 1, 2 --- Empty, Player, Snake
 	mapX:		0,
 	mapY:		0,
-	mapHeight:	30, //Map height in squares (one square is 32*32 pixels).
-	mapWidth:	40, //Map width in squares. If you change mapHeight or mapWidth, make sure to change WORLD_HEIGHT and WORLD_WIDTH respectively as well.
+	mapHeight:	0, //Map height in squares (one square is 32*32 pixels).
+	mapWidth:	0, //Map width in squares. 0 at first, will be calculated based on WORLD_HEIGHT and WORLD_WIDTH.
 	
 	playerX:	0,
 	playerY:	0, //Player starts in top left
-	headX:		7,
-	headY:		9, //Snake head starts in bottom right
+	headX:		0,
+	headY:		0, //Snake head starts in bottom right, location is calculated inside Init() once the map size is initialised
 	bodies:		[],
 	gameTimer:	null,
 	movInput:	0,
 	snakeAIFlag:0,
+	gameSpeed:	0, //How often the game updates (this number is the index of gameSpeeds[], and that's where the game will get its update delay in milliseconds), defaults to slowest speed
+	gameSpeeds:	[500, 350, 200], //Different delays between game updates (in milliseconds), smaller number = faster game, numbers should be in decreasing order
+	gameSpeedChangedFlag:	true, //A flag that's required for when the game's speed changes (when true, the game changes the update speed on the next Update() call)
 	
 //### START OF GAME OBJECT FUNCTIONS
 	Init: function() {
 		Game.gameCanvas = document.getElementById(CANVAS_GAME_ID);
 		Game.ctx = Game.gameCanvas.getContext("2d");
+		
 		//Map initialisation
+		Game.mapHeight = (WORLD_HEIGHT / 32);
+		Game.mapWidth = (WORLD_WIDTH / 32);
+		
 		for (i = 0; i < Game.mapHeight; i++) { //Create as many rows as is the map's height
 			Game.map.push([]);
 			
@@ -42,10 +56,22 @@ var Game = {
 				Game.map[i].push(0);
 			}
 		}
+		
 		//Player initialisation
 		Game.map[Game.playerY][Game.playerX] = 1;
 		
+		/*
+			[
+			[0,0,0,0,0,0,...0],
+			[0,0,0,0,0,0,...0],
+			...,
+			[0,0,0,0,0,0,...0]
+			]
+		*/
+		
 		//Snake Init
+		Game.headX = Game.mapWidth - 1; //Snake starts at bottom right corner
+		Game.headY = Game.mapHeight - 1;
 		for( var m = 0; m < MAX_BODIES; m++ ) {
 			if( m == 0 ) {
 				Game.bodies[m] = new Body(m, Game.headX, Game.headY);
@@ -65,7 +91,7 @@ var Game = {
 	
 	DrawScreen: function() {
 		Game.ctx.fillStyle	= "#FFF";
-        	Game.ctx.fillRect(0, 0, Game.gameWidth, Game.gameHeight);
+        Game.ctx.fillRect(0, 0, Game.gameWidth, Game.gameHeight);
 		for( var i = 0; i < Game.mapHeight; i++ ) {
 			for( var j = 0; j < Game.mapWidth; j++ ) {
 				//BACKGROUND
@@ -98,19 +124,26 @@ var Game = {
 		//MOVEMENT
 			//W -- Up
 			case 87:
+			case 38: //Using switch-case fall-through we can have both WASD as well as the Arrow keys working (WASD codes above, Arrow key codes below)
 				Game.movInput = 0;
 				break;
 			//A -- Left
 			case 65:
+			case 37:
 				Game.movInput = 1;
 				break;
 			//S -- Down
 			case 83:
+			case 40:
 				Game.movInput = 2;
 				break;
 			//D -- Right
 			case 68:
+			case 39:
 				Game.movInput = 3;
+				break;
+			case 82: //R -- Changes the game speed
+				Game.ChangeGameSpeed();
 				break;
 			default: break;
 		}
@@ -121,14 +154,14 @@ var Game = {
 		if( dir === 0 ) { 	//Bounds check Y
 			if( Game.playerY < 0 ) {
 				Game.playerY = 0;
-			} else if( Game.playerY > Game.mapHeight-1) { //If player is trying to move out of bounds (vertically), stop it
-				Game.playerY = Game.mapHeight-1;
+			} else if( Game.playerY > Game.mapHeight - 1) {
+				Game.playerY = Game.mapHeight - 1;
 			}
 		} else {			//Bounds check X
 			if( Game.playerX < 0 ) {
 				Game.playerX = 0;
-			} else if( Game.playerX > Game.mapWidth-1 ) { //If player is trying to move out of bounds (horizontally), stop it
-				Game.playerX = Game.mapWidth-1;
+			} else if( Game.playerX > Game.mapWidth - 1) {
+				Game.playerX = Game.mapWidth - 1;
 			}
 		}
 	},
@@ -287,11 +320,32 @@ var Game = {
 		}
 	},
 	
+	ChangeGameSpeed: function() {
+		if(Game.gameSpeed < (Game.gameSpeeds.length - 1)) { //If game is not at the fastest setting...
+			Game.gameSpeed = Game.gameSpeed + 1; //then make it even faster.
+			Game.gameSpeedChangedFlag = true;
+		} else if (Game.gameSpeed == (Game.gameSpeeds.length - 1)) { //If game is at the fastest setting...
+			Game.gameSpeed = 0; //then revert back to the slowest setting.
+			Game.gameSpeedChangedFlag = true;
+		} else {
+			console.log("ERROR: ChangeGameSpeed()");
+		}
+		console.log("Game speed is " + Game.gameSpeed);
+	},
+	
 	Update: function() {
 		//Set Gamespeed
+		/*
 		if( Game.gameTimer == null ) {
-			Game.gameTimer = setInterval(Game.MoveActors, 500);
+			Game.gameTimer = setInterval(Game.MoveActors, Game.gameSpeeds[Game.gameSpeed]); //Have the game update according to Game.gameSpeeds[Game.gameSpeed] AKA the current speed setting
 		}
+		*/
+		if (Game.gameSpeedChangedFlag) {
+			clearInterval(Game.gameTimer);
+			Game.gameTimer = setInterval(Game.MoveActors, Game.gameSpeeds[Game.gameSpeed]); //Have the game update according to Game.gameSpeeds[Game.gameSpeed] AKA the current speed setting
+			Game.gameSpeedChangedFlag = false;
+		}
+		
 		
 		Game.DrawScreen();
 	}
