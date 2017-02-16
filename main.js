@@ -2,16 +2,18 @@
 TODO:
 Add a simple point system and show the current points and the current game speed to the player
 Make the player drop food for the snake when the snake gets too close
-Make the snake grow when it eats food
+Make snake also have bounds limits - currently if player reaches top or bottom, because of how movement works, it breaks.
+Fix snake breaking aftering eating food
+Make player die if he collides with snake
 */
 
 //### START OF GLOBAL VARIABLES
 var CANVAS_GAME_ID			= "canvasGame";
-var WORLD_HEIGHT			= 960; //Should be divisible by 32
+var WORLD_HEIGHT			= 960;  //Should be divisible by 32
 var WORLD_WIDTH				= 1280; //Should be divisible by 32
 var OK_MIN_SCREEN_RATIO		= 1.33;  
 var OK_MAX_SCREEN_RATIO		= 1.35;
-var MAX_BODIES				= 10;
+var MAX_BODIES				= 100;
 //### END OF GLOBAL VARIABLES
 
 var Game = {
@@ -22,9 +24,9 @@ var Game = {
 	gameWidth:			WORLD_WIDTH,
 	
 	map:	[], //Map is generated in Init() according to mapHeight and mapWidth.
-				//0, 1, 2 --- Empty, Player, Snake
-	mapX:		0,
-	mapY:		0,
+				//0, 1, 2, 3 --- Empty, Player, Snake, Food
+	mapX:		0, //Drawing variable
+	mapY:		0, //Drawing variable
 	mapHeight:	0, //Map height in squares (one square is 32*32 pixels).
 	mapWidth:	0, //Map width in squares. 0 at first, will be calculated based on WORLD_HEIGHT and WORLD_WIDTH.
 	
@@ -33,11 +35,18 @@ var Game = {
 	headX:		0,
 	headY:		0, //Snake head starts in bottom right, location is calculated inside Init() once the map size is initialised
 	bodies:		[],
+	snakeSize:	2, //Snake starts at size 3
 	gameTimer:	null,
 	movInput:	0,
 	snakeAIFlag:0,
+	
+	dropFood:	0, //Either 0 or 3, player replaces their position with dropFood
+	foodFlag:	0, //Either 0 or 1, If food exists, foodFlag = 1
+	foodX:		0,
+	foodY:		0,
+	
 	gameSpeed:	0, //How often the game updates (this number is the index of gameSpeeds[], and that's where the game will get its update delay in milliseconds), defaults to slowest speed
-	gameSpeeds:	[500, 350, 200], //Different delays between game updates (in milliseconds), smaller number = faster game, numbers should be in decreasing order
+	gameSpeeds:	[500, 350, 200, 100], //Different delays between game updates (in milliseconds), smaller number = faster game, numbers should be in decreasing order
 	gameSpeedChangedFlag:	true, //A flag that's required for when the game's speed changes (when true, the game changes the update speed on the next Update() call)
 	
 //### START OF GAME OBJECT FUNCTIONS
@@ -76,7 +85,7 @@ var Game = {
 			if( m == 0 ) {
 				Game.bodies[m] = new Body(m, Game.headX, Game.headY);
 			} else {
-				Game.bodies[m] = new Body(m, Game.bodies[m-1].x-1, Game.bodies[m-1].y);
+				Game.bodies[m] = new Body(m, Game.bodies[m-1].x+1, Game.bodies[m-1].y);
 			}
 		}
 		Game.bodies[0].isAlive = 1;
@@ -145,6 +154,12 @@ var Game = {
 			case 82: //R -- Changes the game speed
 				Game.ChangeGameSpeed();
 				break;
+			case 70: //F -- Drops a food (DEBUG PURPOSES)
+				Game.dropFood = 3; //3 is the map code for Food
+				Game.foodFlag = 1;
+				Game.foodX = Game.playerX;
+				Game.foodY = Game.playerY;
+				break;
 			default: break;
 		}
 	},
@@ -194,26 +209,58 @@ var Game = {
 	},
 	
 	SnakeCollisionCheck: function(dir) {
-		//If there is a collision, undo the movement
+		//If there is a collision: if player, undo the movement, if food, eat food
 		switch( dir ) {
 			case 0: //Above
 				if( Game.map[Game.headY][Game.headX] === 1 ) {
 					Game.headY += 1;
+					return;
+				}
+				if( Game.map[Game.headY][Game.headX] === 3 ) {
+					Game.foodX = 0;
+					Game.foodY = 0;
+					Game.foodFlag = 0;
+					Game.GrowSnake();
+					return;
 				}
 				break;
 			case 1: //Below
 				if( Game.map[Game.headY][Game.headX] === 1 ) {
 					Game.headY -= 1;
+					return;
+				}
+				if( Game.map[Game.headY][Game.headX] === 3 ) {
+					Game.foodX = 0;
+					Game.foodY = 0;
+					Game.foodFlag = 0;
+					Game.GrowSnake();
+					return;
 				}
 				break;
 			case 2: //Left
 				if( Game.map[Game.headY][Game.headX] === 1 ) {
 					Game.headX += 1;
+					return;
+				}
+				if( Game.map[Game.headY][Game.headX] === 3 ) {
+					Game.foodX = 0;
+					Game.foodY = 0;
+					Game.foodFlag = 0;
+					Game.GrowSnake();
+					return;
 				}
 				break;
 			case 3: //Right
 				if( Game.map[Game.headY][Game.headX] === 1 ) {
-					Game.headX -= 1;		
+					Game.headX -= 1;
+					return;					
+				}
+				if( Game.map[Game.headY][Game.headX] === 3 ) {
+					Game.foodX = 0;
+					Game.foodY = 0;
+					Game.foodFlag = 0;
+					Game.GrowSnake();
+					return;					
 				}
 				break;
 			default: console.log("ERROR: CollisionCheck - dir out of range"); break;
@@ -225,7 +272,7 @@ var Game = {
 		switch( Game.movInput ) {
 			//W -- Up
 			case 0:
-				Game.map[Game.playerY][Game.playerX] = 0;
+				Game.map[Game.playerY][Game.playerX] = Game.dropFood;
 				Game.playerY -= 1;
 				Game.BoundsCheck(0);
 				Game.CollisionCheck(0);
@@ -233,7 +280,7 @@ var Game = {
 				break;
 			//A -- Left
 			case 1:
-				Game.map[Game.playerY][Game.playerX] = 0;
+				Game.map[Game.playerY][Game.playerX] = Game.dropFood;
 				Game.playerX -= 1;
 				Game.BoundsCheck(1);
 				Game.CollisionCheck(2);
@@ -241,7 +288,7 @@ var Game = {
 				break;
 			//S -- Down
 			case 2:
-				Game.map[Game.playerY][Game.playerX] = 0;
+				Game.map[Game.playerY][Game.playerX] = Game.dropFood;
 				Game.playerY += 1;
 				Game.BoundsCheck(0);
 				Game.CollisionCheck(1);
@@ -249,7 +296,7 @@ var Game = {
 				break;
 			//D -- Right
 			case 3:
-				Game.map[Game.playerY][Game.playerX] = 0;
+				Game.map[Game.playerY][Game.playerX] = Game.dropFood;
 				Game.playerX += 1;
 				Game.BoundsCheck(1);
 				Game.CollisionCheck(3);
@@ -257,7 +304,24 @@ var Game = {
 				break;
 			default: console.log("ERROR: MoveActors - movInput Out of Bounds"); break;
 		}
+		Game.dropFood = 0;
+		
 		//HEAD MOVEMENT
+		if( Game.foodFlag === 1 ) {
+			Game.MoveSnakeHeadTowardsFood();
+		} else {
+			Game.MoveSnakeHeadTowardsPlayer();
+		}
+		
+		//BODY MOVEMENT
+		for( var i=0; i < Game.bodies.length; i++ ) {
+			if( Game.bodies[i].isAlive === 1 ) {
+				Game.bodies[i].move();
+			}
+		}
+	},
+	
+	MoveSnakeHeadTowardsPlayer: function() {
 		if( Game.snakeAIFlag === 0 ) { 				//Search X First
 			if( Game.playerX > Game.headX ) {			//Player is to the right
 				Game.map[Game.headY][Game.headX] = 0;
@@ -311,13 +375,71 @@ var Game = {
 				Game.map[Game.headY][Game.headX] = 2;
 			}
 		}
-		
-		//BODY MOVEMENT
-		for( var i=0; i < Game.bodies.length; i++ ) {
-			if( Game.bodies[i].isAlive === 1 ) {
-				Game.bodies[i].move();
+	},
+	
+	MoveSnakeHeadTowardsFood: function() {
+		if( Game.snakeAIFlag === 0 ) { 				//Search X First
+			if( Game.foodX > Game.headX ) {			//Player is to the right
+				Game.map[Game.headY][Game.headX] = 0;
+				Game.headX += 1;
+				Game.snakeAIFlag = 1;
+				Game.SnakeCollisionCheck(3);
+				Game.map[Game.headY][Game.headX] = 2;
+			} else if( Game.foodX < Game.headX ) {	//Player is to the left
+				Game.map[Game.headY][Game.headX] = 0;
+				Game.headX -= 1;
+				Game.snakeAIFlag = 1;
+				Game.SnakeCollisionCheck(2);
+				Game.map[Game.headY][Game.headX] = 2;
+			} else if( Game.foodY > Game.headY ) {	//Player is above
+				Game.map[Game.headY][Game.headX] = 0;
+				Game.headY += 1;
+				Game.snakeAIFlag = 0;
+				Game.SnakeCollisionCheck(0);
+				Game.map[Game.headY][Game.headX] = 2;
+			} else if( Game.foodY < Game.headY ) {	//Player is below
+				Game.map[Game.headY][Game.headX] = 0;
+				Game.headY -= 1;
+				Game.snakeAIFlag = 0;
+				Game.SnakeCollisionCheck(1);
+				Game.map[Game.headY][Game.headX] = 2;
+			}
+		} else {									//Search Y First
+			if( Game.foodY > Game.headY ) {			//Player is above
+				Game.map[Game.headY][Game.headX] = 0;
+				Game.headY += 1;
+				Game.snakeAIFlag = 0;
+				Game.SnakeCollisionCheck(0);
+				Game.map[Game.headY][Game.headX] = 2;
+			} else if( Game.foodY < Game.headY ) {	//Player is below
+				Game.map[Game.headY][Game.headX] = 0;
+				Game.headY -= 1;
+				Game.snakeAIFlag = 0;
+				Game.SnakeCollisionCheck(1);
+				Game.map[Game.headY][Game.headX] = 2;
+			} else if( Game.foodX > Game.headX ) {	//Player is to the right
+				Game.map[Game.headY][Game.headX] = 0;
+				Game.headX += 1;
+				Game.snakeAIFlag = 1;
+				Game.SnakeCollisionCheck(3);
+				Game.map[Game.headY][Game.headX] = 2;
+			} else if( Game.foodX < Game.headX ) {	//Player is to the left
+				Game.map[Game.headY][Game.headX] = 0;
+				Game.headX -= 1;
+				Game.snakeAIFlag = 1;
+				Game.SnakeCollisionCheck(2);
+				Game.map[Game.headY][Game.headX] = 2;
 			}
 		}
+	},
+	
+	GrowSnake: function() {
+		Game.snakeSize++;
+		Game.bodies[Game.snakeSize].x = Game.bodies[Game.snakeSize-1].x-1;
+		Game.bodies[Game.snakeSize].y = Game.bodies[Game.snakeSize-1].y-1;
+		Game.map[Game.bodies[Game.snakeSize].y][Game.bodies[Game.snakeSize].x] = 2;
+		Game.bodies[Game.snakeSize].isAlive = 1;
+		console.log(Game.map[Game.bodies[Game.snakeSize].y][Game.bodies[Game.snakeSize].x]);
 	},
 	
 	ChangeGameSpeed: function() {
@@ -328,24 +450,19 @@ var Game = {
 			Game.gameSpeed = 0; //then revert back to the slowest setting.
 			Game.gameSpeedChangedFlag = true;
 		} else {
-			console.log("ERROR: ChangeGameSpeed()");
+			console.log("ERROR: ChangeGameSpeed() - Game.gameSpeed out of bounds.");
 		}
+		//#TODO: Remove debugs
 		console.log("Game speed is " + Game.gameSpeed);
 	},
 	
 	Update: function() {
 		//Set Gamespeed
-		/*
-		if( Game.gameTimer == null ) {
-			Game.gameTimer = setInterval(Game.MoveActors, Game.gameSpeeds[Game.gameSpeed]); //Have the game update according to Game.gameSpeeds[Game.gameSpeed] AKA the current speed setting
-		}
-		*/
 		if (Game.gameSpeedChangedFlag) {
 			clearInterval(Game.gameTimer);
 			Game.gameTimer = setInterval(Game.MoveActors, Game.gameSpeeds[Game.gameSpeed]); //Have the game update according to Game.gameSpeeds[Game.gameSpeed] AKA the current speed setting
 			Game.gameSpeedChangedFlag = false;
 		}
-		
 		
 		Game.DrawScreen();
 	}
@@ -353,9 +470,6 @@ var Game = {
 };
 
 //### START OF GLOBAL FUNCTIONS
-//EVENT HANDLERS
-window.addEventListener("resize", doResize, false);
-window.addEventListener("keydown", doKeydown, false);
 
 function doResize() {
 	var canvas1 = document.getElementById(CANVAS_GAME_ID);
@@ -395,7 +509,6 @@ function UpdateCanvas(canvas) {
 		canvas.style.width = canvas.width * optimalRatio + "px";
 		canvas.style.height = canvas.height * optimalRatio + "px";
 		canvas.style.left = ( (gameWidth - (canvas.width * optimalRatio)) / 2 ) + "px";
-
 	}
     
     canvas.style.display = tempDisplay;
@@ -410,6 +523,9 @@ function doKeydown(e) {
 };
 
 window.onload = function() {
+	//EVENT HANDLERS
+	window.addEventListener("resize", doResize, false);
+	window.addEventListener("keydown", doKeydown, false);
 	Game.Init();
 	doResize();
 	// Start Game Loop
