@@ -1,25 +1,3 @@
-/*
-TODO:
-1. Make it so the snake has a list of food dropped and he goes to them until there is no food left.
-	- Make a food class (to store x and y position, and is alive)
-	- Max amount of food on board
-	- Init the array in init
-	- foodX and foodY will likely be removed entirely and reworked with a check to the list
-2. Make it so rations can spawn in first row and column.
-	- The issue is some sort of infinite loop issue with Math.random
-3. Add UI
-	- Display Score
-	- Display Food Held
-	- Display Gamespeed
-4. Make snake also have bounds limits
-	- currently if player reaches top or bottom, because of how movement works, it breaks.
-5. Fix snake collapsing in on itself, make it so it can't do that.
-6. Perhaps make it so if snake eats food, he pauses for one tick (allows the player to gain distance)
-7. Make player die if he collides with snake
-8. Make start screen/instructions
-9. Make gameover screen with restart
-*/
-
 //### START OF GLOBAL VARIABLES
 var CANVAS_GAME_ID			= "canvasGame";
 var WORLD_HEIGHT			= 960;  //Should be divisible by 32
