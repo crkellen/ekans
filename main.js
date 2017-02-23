@@ -1,10 +1,23 @@
 /*
 TODO:
-Add a simple point system and show the current points and the current game speed to the player
-Make the player drop food for the snake when the snake gets too close
-Make snake also have bounds limits - currently if player reaches top or bottom, because of how movement works, it breaks.
-Fix snake breaking aftering eating food
-Make player die if he collides with snake
+1. Make it so the snake has a list of food dropped and he goes to them until there is no food left.
+	- Make a food class (to store x and y position, and is alive)
+	- Max amount of food on board
+	- Init the array in init
+	- foodX and foodY will likely be removed entirely and reworked with a check to the list
+2. Make it so rations can spawn in first row and column.
+	- The issue is some sort of infinite loop issue with Math.random
+3. Add UI
+	- Display Score
+	- Display Food Held
+	- Display Gamespeed
+4. Make snake also have bounds limits
+	- currently if player reaches top or bottom, because of how movement works, it breaks.
+5. Fix snake collapsing in on itself, make it so it can't do that.
+6. Perhaps make it so if snake eats food, he pauses for one tick (allows the player to gain distance)
+7. Make player die if he collides with snake
+8. Make start screen/instructions
+9. Make gameover screen with restart
 */
 
 //### START OF GLOBAL VARIABLES
@@ -24,7 +37,7 @@ var Game = {
 	gameWidth:			WORLD_WIDTH,
 	
 	map:	[], //Map is generated in Init() according to mapHeight and mapWidth.
-				//0, 1, 2, 3 --- Empty, Player, Snake, Food
+				//0, 1, 2, 3, 4 --- Empty, Player, Snake, Food, Ration
 	mapX:		0, //Drawing variable
 	mapY:		0, //Drawing variable
 	mapHeight:	0, //Map height in squares (one square is 32*32 pixels).
@@ -44,6 +57,8 @@ var Game = {
 	foodFlag:	0, //Either 0 or 1, If food exists, foodFlag = 1
 	foodX:		0,
 	foodY:		0,
+	foodHeld:	1, //Amount of food player currently has, player gets more food by picking up rations
+	rationExists:	0, //Either 0 or 1, If ration exists, rationExists = 1
 	
 	gameSpeed:	0, //How often the game updates (this number is the index of gameSpeeds[], and that's where the game will get its update delay in milliseconds), defaults to slowest speed
 	gameSpeeds:	[500, 350, 200, 100], //Different delays between game updates (in milliseconds), smaller number = faster game, numbers should be in decreasing order
@@ -77,7 +92,7 @@ var Game = {
 			[0,0,0,0,0,0,...0]
 			]
 		*/
-		
+
 		//Snake Init
 		Game.headX = Game.mapWidth - 1; //Snake starts at bottom right corner
 		Game.headY = Game.mapHeight - 1;
@@ -118,6 +133,16 @@ var Game = {
 					Game.ctx.fillStyle = "#00FFFF";
 					Game.ctx.fillRect(Game.mapX, Game.mapY, 32, 32);
 				}
+				//FOOD
+				if( Game.map[i][j] === 3 ) {
+					Game.ctx.fillStyle = "#FF0000";
+					Game.ctx.fillRect(Game.mapX, Game.mapY, 32, 32);
+				}
+				//RATIONS
+				if( Game.map[i][j] === 4 ) {
+					Game.ctx.fillStyle = "#5500FF";
+					Game.ctx.fillRect(Game.mapX, Game.mapY, 32, 32);
+				}
 				
 				Game.mapX += 32;
 			}
@@ -154,11 +179,14 @@ var Game = {
 			case 82: //R -- Changes the game speed
 				Game.ChangeGameSpeed();
 				break;
-			case 70: //F -- Drops a food (DEBUG PURPOSES)
-				Game.dropFood = 3; //3 is the map code for Food
-				Game.foodFlag = 1;
-				Game.foodX = Game.playerX;
-				Game.foodY = Game.playerY;
+			case 70: //F -- Drops a food
+				if( Game.foodFlag === 0 && Game.foodHeld > 0 ) {
+					Game.dropFood = 3; //3 is the map code for Food
+					Game.foodFlag = 1;
+					Game.foodX = Game.playerX;
+					Game.foodY = Game.playerY;
+					Game.foodHeld--;
+				}
 				break;
 			default: break;
 		}
@@ -182,7 +210,10 @@ var Game = {
 	},
 	
 	CollisionCheck: function(dir) {
-		//If there is a collision, undo the movement
+		//If there is a collision, undo the movement --- If map = 2
+		//If there is a ration, add 1 to amount of food held --- If map = 4
+		
+		//Collision Check --- Snake
 		switch( dir ) {
 			case 0: //Above
 				if( Game.map[Game.playerY][Game.playerX] === 2 ) {
@@ -205,6 +236,12 @@ var Game = {
 				}
 				break;
 			default: console.log("ERROR: CollisionCheck - dir out of range"); break;
+		}
+		
+		//Ration Check
+		if( Game.map[Game.playerY][Game.playerX] === 4 ) {
+			Game.foodHeld++;
+			Game.rationExists = 0;
 		}
 	},
 	
@@ -267,6 +304,18 @@ var Game = {
 		}
 	},
 	
+	SpawnRation: function() {
+		while( Game.rationExists === 0 ) {
+			//#TODO: Fix this not spawning at first row and column
+			var rX = Math.floor((Math.random() * Game.mapWidth) + 1);
+			var rY = Math.floor((Math.random() * Game.mapHeight) + 1);
+			if( Game.map[rY][rX] === 0 ) {
+				Game.map[rY][rX] = 4;
+				Game.rationExists = 1;
+			}
+		}
+	},
+	
 	MoveActors: function() {
 		//PLAYER MOVEMENT
 		switch( Game.movInput ) {
@@ -318,6 +367,11 @@ var Game = {
 			if( Game.bodies[i].isAlive === 1 ) {
 				Game.bodies[i].move();
 			}
+		}
+
+		//RATION EXISTS CHECK AND SPAWN
+		if( Game.rationExists === 0 ) {
+			Game.SpawnRation();
 		}
 	},
 	
@@ -439,7 +493,6 @@ var Game = {
 		Game.bodies[Game.snakeSize].y = Game.bodies[Game.snakeSize-1].y-1;
 		Game.map[Game.bodies[Game.snakeSize].y][Game.bodies[Game.snakeSize].x] = 2;
 		Game.bodies[Game.snakeSize].isAlive = 1;
-		console.log(Game.map[Game.bodies[Game.snakeSize].y][Game.bodies[Game.snakeSize].x]);
 	},
 	
 	ChangeGameSpeed: function() {
@@ -453,7 +506,7 @@ var Game = {
 			console.log("ERROR: ChangeGameSpeed() - Game.gameSpeed out of bounds.");
 		}
 		//#TODO: Remove debugs
-		console.log("Game speed is " + Game.gameSpeed);
+		console.log("DEBUG: Game speed is " + Game.gameSpeed);
 	},
 	
 	Update: function() {
