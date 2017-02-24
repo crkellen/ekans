@@ -23,6 +23,7 @@ var Game = {
 	
 	playerX:	0,
 	playerY:	0, //Player starts in top left
+	playerIsOnTopOf:	0,
 	headX:		0,
 	headY:		0, //Snake head starts in bottom right, location is calculated inside Init() once the map size is initialised
 	bodies:		[],
@@ -31,10 +32,12 @@ var Game = {
 	movInput:	0,
 	snakeAIFlag:0,
 	
-	dropFood:	0, //Either 0 or 3, player replaces their position with dropFood
-	foodFlag:	0, //Either 0 or 1, If food exists, foodFlag = 1
-	foodX:		0,
-	foodY:		0,
+	//dropFood:	0, //Either 0 or 3, player replaces their position with dropFood
+	//foodFlag:	0, //Either 0 or 1, If food exists, foodFlag = 1
+	foodList:	[],
+	targetFoodX:		0,
+	targetFoodY:		0,
+	foodNextNumber:	0, //The number of the food dropped next, increases by 1 with every food drop, helps differentiate different food pieces on the map
 	foodHeld:	1, //Amount of food player currently has, player gets more food by picking up rations
 	rationExists:	0, //Either 0 or 1, If ration exists, rationExists = 1
 	
@@ -158,12 +161,11 @@ var Game = {
 				Game.ChangeGameSpeed();
 				break;
 			case 70: //F -- Drops a food
-				if( Game.foodFlag === 0 && Game.foodHeld > 0 ) {
-					Game.dropFood = 3; //3 is the map code for Food
-					Game.foodFlag = 1;
-					Game.foodX = Game.playerX;
-					Game.foodY = Game.playerY;
-					Game.foodHeld--;
+				if( Game.foodHeld > 0 ) {
+					Game.DropFood();
+					//Game.foodFlag = 1;
+					//Game.foodX = Game.playerX;
+					//Game.foodY = Game.playerY;
 				}
 				break;
 			default: break;
@@ -232,9 +234,10 @@ var Game = {
 					return;
 				}
 				if( Game.map[Game.headY][Game.headX] === 3 ) {
-					Game.foodX = 0;
-					Game.foodY = 0;
-					Game.foodFlag = 0;
+					Game.targetFoodX = 0;
+					Game.targetFoodY = 0;
+					//Game.foodFlag = 0;
+					Game.RemoveFoodSnakeAte(Game.headY, Game.headX);
 					Game.GrowSnake();
 					return;
 				}
@@ -245,9 +248,10 @@ var Game = {
 					return;
 				}
 				if( Game.map[Game.headY][Game.headX] === 3 ) {
-					Game.foodX = 0;
-					Game.foodY = 0;
-					Game.foodFlag = 0;
+					Game.targetFoodX = 0;
+					Game.targetFoodY = 0;
+					//Game.foodFlag = 0;
+					Game.RemoveFoodSnakeAte(Game.headY, Game.headX);
 					Game.GrowSnake();
 					return;
 				}
@@ -258,9 +262,10 @@ var Game = {
 					return;
 				}
 				if( Game.map[Game.headY][Game.headX] === 3 ) {
-					Game.foodX = 0;
-					Game.foodY = 0;
-					Game.foodFlag = 0;
+					Game.targetFoodX = 0;
+					Game.targetFoodY = 0;
+					//Game.foodFlag = 0;
+					Game.RemoveFoodSnakeAte(Game.headY, Game.headX);
 					Game.GrowSnake();
 					return;
 				}
@@ -271,9 +276,10 @@ var Game = {
 					return;					
 				}
 				if( Game.map[Game.headY][Game.headX] === 3 ) {
-					Game.foodX = 0;
-					Game.foodY = 0;
-					Game.foodFlag = 0;
+					Game.targetFoodX = 0;
+					Game.targetFoodY = 0;
+					//Game.foodFlag = 0;
+					Game.RemoveFoodSnakeAte(Game.headY, Game.headX);
 					Game.GrowSnake();
 					return;					
 				}
@@ -299,42 +305,60 @@ var Game = {
 		switch( Game.movInput ) {
 			//W -- Up
 			case 0:
-				Game.map[Game.playerY][Game.playerX] = Game.dropFood;
+				Game.map[Game.playerY][Game.playerX] = Game.playerIsOnTopOf;
 				Game.playerY -= 1;
 				Game.BoundsCheck(0);
 				Game.CollisionCheck(0);
+				Game.playerIsOnTopOf = Game.map[Game.playerY][Game.playerX]; //Store whatever the player moves on top of so when the player moves away we can restore what was stepped on
+				if (Game.playerIsOnTopOf === 4) {
+					Game.playerIsOnTopOf = 0;
+				}
 				Game.map[Game.playerY][Game.playerX] = 1;
 				break;
 			//A -- Left
 			case 1:
-				Game.map[Game.playerY][Game.playerX] = Game.dropFood;
+				Game.map[Game.playerY][Game.playerX] = Game.playerIsOnTopOf;
 				Game.playerX -= 1;
 				Game.BoundsCheck(1);
 				Game.CollisionCheck(2);
+				Game.playerIsOnTopOf = Game.map[Game.playerY][Game.playerX];
+				if (Game.playerIsOnTopOf === 4) {
+					Game.playerIsOnTopOf = 0;
+				}
 				Game.map[Game.playerY][Game.playerX] = 1;
 				break;
 			//S -- Down
 			case 2:
-				Game.map[Game.playerY][Game.playerX] = Game.dropFood;
+				Game.map[Game.playerY][Game.playerX] = Game.playerIsOnTopOf;
 				Game.playerY += 1;
 				Game.BoundsCheck(0);
 				Game.CollisionCheck(1);
+				Game.playerIsOnTopOf = Game.map[Game.playerY][Game.playerX];
+				if (Game.playerIsOnTopOf === 4) {
+					Game.playerIsOnTopOf = 0;
+				}
 				Game.map[Game.playerY][Game.playerX] = 1;
 				break;
 			//D -- Right
 			case 3:
-				Game.map[Game.playerY][Game.playerX] = Game.dropFood;
+				Game.map[Game.playerY][Game.playerX] = Game.playerIsOnTopOf;
 				Game.playerX += 1;
 				Game.BoundsCheck(1);
 				Game.CollisionCheck(3);
+				Game.playerIsOnTopOf = Game.map[Game.playerY][Game.playerX];
+				if (Game.playerIsOnTopOf === 4) {
+					Game.playerIsOnTopOf = 0;
+				}
 				Game.map[Game.playerY][Game.playerX] = 1;
 				break;
 			default: console.log("ERROR: MoveActors - movInput Out of Bounds"); break;
 		}
-		Game.dropFood = 0;
+		//Game.dropFood = 0;
 		
 		//HEAD MOVEMENT
-		if( Game.foodFlag === 1 ) {
+		if( Game.foodList.length > 0 ) {
+			Game.targetFoodX = Game.foodList[0].foodX;
+			Game.targetFoodY = Game.foodList[0].foodY;
 			Game.MoveSnakeHeadTowardsFood();
 		} else {
 			Game.MoveSnakeHeadTowardsPlayer();
@@ -411,25 +435,25 @@ var Game = {
 	
 	MoveSnakeHeadTowardsFood: function() {
 		if( Game.snakeAIFlag === 0 ) { 				//Search X First
-			if( Game.foodX > Game.headX ) {			//Player is to the right
+			if( Game.targetFoodX > Game.headX ) {			//Food is to the right
 				Game.map[Game.headY][Game.headX] = 0;
 				Game.headX += 1;
 				Game.snakeAIFlag = 1;
 				Game.SnakeCollisionCheck(3);
 				Game.map[Game.headY][Game.headX] = 2;
-			} else if( Game.foodX < Game.headX ) {	//Player is to the left
+			} else if( Game.targetFoodX < Game.headX ) {	//Food is to the left
 				Game.map[Game.headY][Game.headX] = 0;
 				Game.headX -= 1;
 				Game.snakeAIFlag = 1;
 				Game.SnakeCollisionCheck(2);
 				Game.map[Game.headY][Game.headX] = 2;
-			} else if( Game.foodY > Game.headY ) {	//Player is above
+			} else if( Game.targetFoodY > Game.headY ) {	//Food is above
 				Game.map[Game.headY][Game.headX] = 0;
 				Game.headY += 1;
 				Game.snakeAIFlag = 0;
 				Game.SnakeCollisionCheck(0);
 				Game.map[Game.headY][Game.headX] = 2;
-			} else if( Game.foodY < Game.headY ) {	//Player is below
+			} else if( Game.targetFoodY < Game.headY ) {	//Food is below
 				Game.map[Game.headY][Game.headX] = 0;
 				Game.headY -= 1;
 				Game.snakeAIFlag = 0;
@@ -437,25 +461,25 @@ var Game = {
 				Game.map[Game.headY][Game.headX] = 2;
 			}
 		} else {									//Search Y First
-			if( Game.foodY > Game.headY ) {			//Player is above
+			if( Game.targetFoodY > Game.headY ) {			//Food is above
 				Game.map[Game.headY][Game.headX] = 0;
 				Game.headY += 1;
 				Game.snakeAIFlag = 0;
 				Game.SnakeCollisionCheck(0);
 				Game.map[Game.headY][Game.headX] = 2;
-			} else if( Game.foodY < Game.headY ) {	//Player is below
+			} else if( Game.targetFoodY < Game.headY ) {	//Food is below
 				Game.map[Game.headY][Game.headX] = 0;
 				Game.headY -= 1;
 				Game.snakeAIFlag = 0;
 				Game.SnakeCollisionCheck(1);
 				Game.map[Game.headY][Game.headX] = 2;
-			} else if( Game.foodX > Game.headX ) {	//Player is to the right
+			} else if( Game.targetFoodX > Game.headX ) {	//Food is to the right
 				Game.map[Game.headY][Game.headX] = 0;
 				Game.headX += 1;
 				Game.snakeAIFlag = 1;
 				Game.SnakeCollisionCheck(3);
 				Game.map[Game.headY][Game.headX] = 2;
-			} else if( Game.foodX < Game.headX ) {	//Player is to the left
+			} else if( Game.targetFoodX < Game.headX ) {	//Food is to the left
 				Game.map[Game.headY][Game.headX] = 0;
 				Game.headX -= 1;
 				Game.snakeAIFlag = 1;
@@ -484,7 +508,18 @@ var Game = {
 			console.log("ERROR: ChangeGameSpeed() - Game.gameSpeed out of bounds.");
 		}
 		//#TODO: Remove debugs
-		console.log("DEBUG: Game speed is " + Game.gameSpeed);
+		//console.log("DEBUG: Game speed is " + Game.gameSpeed);
+	},
+	
+	DropFood: function() { //Called when the player drops food
+		var newFood = {
+			foodX: Game.playerX,
+			foodY: Game.playerY
+			}
+		Game.foodList.push(newFood);
+		Game.playerIsOnTopOf = 3;
+		Game.foodHeld--;
+		Game.map[Game.playerY][Game.playerX] = 3;
 	},
 	
 	Update: function() {
@@ -496,6 +531,15 @@ var Game = {
 		}
 		
 		Game.DrawScreen();
+	},
+	
+	RemoveFoodSnakeAte: function(snakeHeadY, snakeHeadX){
+		for(var i = 0; i < Game.foodList.length; i++) {
+			if (Game.foodList[i].foodY === snakeHeadY && Game.foodList[i].foodX === snakeHeadX) {
+				Game.foodList.splice(i, 1); //Remove the food the snake ate from the foodList
+				return;
+			}
+		}
 	}
 //### END OF GAME OBJECT FUNCTIONS
 };
