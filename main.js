@@ -5,6 +5,7 @@ var WORLD_WIDTH				= 1280; //Should be divisible by 32
 var OK_MIN_SCREEN_RATIO		= 1.33;  
 var OK_MAX_SCREEN_RATIO		= 1.35;
 var MAX_BODIES				= 100;
+var MAX_FOODS				= 10;
 //### END OF GLOBAL VARIABLES
 
 var Game = {
@@ -38,8 +39,13 @@ var Game = {
 	targetFoodX:		0,
 	targetFoodY:		0,
 	foodNextNumber:	0, //The number of the food dropped next, increases by 1 with every food drop, helps differentiate different food pieces on the map
+	nextFoodNumberToDrop:	0,
 	foodHeld:	1, //Amount of food player currently has, player gets more food by picking up rations
+	foodLeft:	0, //Amount of food left on the board
 	rationExists:	0, //Either 0 or 1, If ration exists, rationExists = 1
+	nextFoodNumberToCheck:	0, //Used for looping through foodList to see what foods are alive
+	nextFoodListIndexToCheck:	0, //Used for looping through foodList to see what foods are alive
+	snakeHasTargetFood:	false,
 	
 	gameSpeed:	0, //How often the game updates (this number is the index of gameSpeeds[], and that's where the game will get its update delay in milliseconds), defaults to slowest speed
 	gameSpeeds:	[500, 350, 200, 100], //Different delays between game updates (in milliseconds), smaller number = faster game, numbers should be in decreasing order
@@ -90,6 +96,13 @@ var Game = {
 		Game.map[Game.bodies[0].y][Game.bodies[0].x] = 2;
 		Game.map[Game.bodies[1].y][Game.bodies[1].x] = 2;
 		Game.map[Game.bodies[2].y][Game.bodies[2].x] = 2;
+		
+		//foodList initialisation
+		for (var i = 0; i < MAX_FOODS; i++) {
+			Game.foodList[i] = new classFood(Game.foodNextNumber);
+			console.log("DEBUG: Created food number " + i);
+			Game.foodNextNumber++;
+		}
 		
 		Game.isInitialized = 1;
 	},
@@ -353,12 +366,27 @@ var Game = {
 				break;
 			default: console.log("ERROR: MoveActors - movInput Out of Bounds"); break;
 		}
-		//Game.dropFood = 0;
 		
 		//HEAD MOVEMENT
-		if( Game.foodList.length > 0 ) {
-			Game.targetFoodX = Game.foodList[0].foodX;
-			Game.targetFoodY = Game.foodList[0].foodY;
+		if( Game.foodLeft > 0 && !Game.snakeHasTargetFood) { //Find next food to go after (if any exist) if the snake doesn't have a target food already
+			for (var i = 0; i < MAX_FOODS; i++) {
+				Game.nextFoodListIndexToCheck = Game.nextFoodNumberToCheck + i;
+				if (Game.nextFoodListIndexToCheck >= 10) {
+					Game.nextFoodListIndexToCheck = Game.nextFoodListIndexToCheck - 10;
+				}
+				//console.log("DEBUG: Checking if " + Game.nextFoodListIndexToCheck + " is alive...");
+				//console.log("DEBUG: Food number " + Game.nextFoodListIndexToCheck + " has isAlive state " + Game.foodList[Game.nextFoodListIndexToCheck].isAlive);
+				if (Game.foodList[Game.nextFoodListIndexToCheck].isAlive === 1) {
+					console.log("DEBUG: Food number " + Game.nextFoodListIndexToCheck + " is alive!")
+					Game.targetFoodX = Game.foodList[Game.nextFoodListIndexToCheck].foodX;
+					Game.targetFoodY = Game.foodList[Game.nextFoodListIndexToCheck].foodY;
+					Game.snakeHasTargetFood = true;
+					Game.nextFoodNumberToCheck = Game.nextFoodListIndexToCheck;
+					Game.MoveSnakeHeadTowardsFood();
+					i = MAX_FOODS + 1;
+				}
+			}
+		} else if (Game.snakeHasTargetFood) {
 			Game.MoveSnakeHeadTowardsFood();
 		} else {
 			Game.MoveSnakeHeadTowardsPlayer();
@@ -512,14 +540,17 @@ var Game = {
 	},
 	
 	DropFood: function() { //Called when the player drops food
-		var newFood = {
-			foodX: Game.playerX,
-			foodY: Game.playerY
-			}
-		Game.foodList.push(newFood);
+		Game.foodList[Game.nextFoodNumberToDrop].ChangeState();
+		console.log("DEBUG: switching the state for " + Game.nextFoodNumberToDrop);
+		Game.foodList[Game.nextFoodNumberToDrop].DropCoordinates(Game.playerX, Game.playerY);
+		Game.nextFoodNumberToDrop++;
+		if (Game.nextFoodNumberToDrop >= 10) {
+			Game.nextFoodNumberToDrop = 0;
+		}
 		Game.playerIsOnTopOf = 3;
+		Game.foodLeft++;
 		Game.foodHeld--;
-		Game.map[Game.playerY][Game.playerX] = 3;
+		//Game.map[Game.playerY][Game.playerX] = 3;
 	},
 	
 	Update: function() {
@@ -536,7 +567,10 @@ var Game = {
 	RemoveFoodSnakeAte: function(snakeHeadY, snakeHeadX){
 		for(var i = 0; i < Game.foodList.length; i++) {
 			if (Game.foodList[i].foodY === snakeHeadY && Game.foodList[i].foodX === snakeHeadX) {
-				Game.foodList.splice(i, 1); //Remove the food the snake ate from the foodList
+				console.log("DEBUG: Snake ate, change food state. It rhymes!");
+				Game.snakeHasTargetFood = false;
+				Game.foodList[i].ChangeState(); //Remove the food the snake ate from the foodList
+				Game.foodLeft--;
 				return;
 			}
 		}
