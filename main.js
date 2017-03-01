@@ -27,6 +27,7 @@ var WORLD_WIDTH				= 1280; //Should be divisible by 32
 var OK_MIN_SCREEN_RATIO		= 1.33;  
 var OK_MAX_SCREEN_RATIO		= 1.35;
 var MAX_BODIES				= 100;
+var MAX_FOOD				= 10;
 //### END OF GLOBAL VARIABLES
 
 var Game = {
@@ -48,6 +49,8 @@ var Game = {
 	headX:		0,
 	headY:		0, //Snake head starts in bottom right, location is calculated inside Init() once the map size is initialised
 	bodies:		[],
+	food:		[],
+	snakeTargets:	[],
 	snakeSize:	2, //Snake starts at size 3
 	gameTimer:	null,
 	movInput:	0,
@@ -69,7 +72,7 @@ var Game = {
 		Game.gameCanvas = document.getElementById(CANVAS_GAME_ID);
 		Game.ctx = Game.gameCanvas.getContext("2d");
 		
-		//Map initialisation
+		//Map Initialisation
 		Game.mapHeight = (WORLD_HEIGHT / 32);
 		Game.mapWidth = (WORLD_WIDTH / 32);
 		
@@ -93,6 +96,11 @@ var Game = {
 			]
 		*/
 
+		//Food Init
+		for( let n = 0; n < MAX_FOOD; n++ ) {
+			Game.food[n] = new Food(n, 0, 0);
+		}
+		
 		//Snake Init
 		Game.headX = Game.mapWidth - 1; //Snake starts at bottom right corner
 		Game.headY = Game.mapHeight - 1;
@@ -180,12 +188,21 @@ var Game = {
 				Game.ChangeGameSpeed();
 				break;
 			case 70: //F -- Drops a food
-				if( Game.foodFlag === 0 && Game.foodHeld > 0 ) {
+				if( Game.foodHeld > 0 ) {
 					Game.dropFood = 3; //3 is the map code for Food
 					Game.foodFlag = 1;
-					Game.foodX = Game.playerX;
-					Game.foodY = Game.playerY;
-					Game.foodHeld--;
+					for( let i = 0; i < Game.food.length; i++ ) {
+						if( Game.food[i].isAlive === 0 ) {
+							Game.foodHeld--;
+							Game.food[i].x = Game.playerX;
+							Game.food[i].y = Game.playerY;
+							Game.snakeTargets.push(Game.food[i])
+							Game.food[i].isAlive = 1;
+							Game.foodX = Game.snakeTargets[0].x;
+							Game.foodY = Game.snakeTargets[0].y;
+							return;
+						}
+					}
 				}
 				break;
 			default: break;
@@ -247,57 +264,116 @@ var Game = {
 	
 	SnakeCollisionCheck: function(dir) {
 		//If there is a collision: if player, undo the movement, if food, eat food
+			//#OPTIMIZATION: Could move the food and ration checks to a separate function.
+				//Switch statement is really only needed for the replacement collision.
+				//However this entire thing is pretty temporary since we shouldn't undo the collision for anything but the walls
+				//Which the snake can't path into anyway.
+				//Although to implement the snake pausing for one movement after eating, the direction would be useful.
+				//Still this could be in a new function with a switch statement for it.
+				//This new function would just be called during movement
 		switch( dir ) {
 			case 0: //Above
+			//PLAYER
 				if( Game.map[Game.headY][Game.headX] === 1 ) {
 					Game.headY += 1;
 					return;
 				}
+			//FOOD
 				if( Game.map[Game.headY][Game.headX] === 3 ) {
-					Game.foodX = 0;
-					Game.foodY = 0;
-					Game.foodFlag = 0;
+					Game.snakeTargets.shift();
+					if( Game.snakeTargets.length !== 0 ) {
+						Game.foodX = Game.snakeTargets[0].x;
+						Game.foodY = Game.snakeTargets[0].y;
+					} else {
+						Game.foodX = 0;
+						Game.foodY = 0;
+						Game.foodFlag = 0;
+					}
 					Game.GrowSnake();
+					return;
+				}
+			//RATION
+				if( Game.map[Game.headY][Game.headX] === 4 ) {
+					Game.rationExists = 0;
 					return;
 				}
 				break;
 			case 1: //Below
+			//PLAYER
 				if( Game.map[Game.headY][Game.headX] === 1 ) {
 					Game.headY -= 1;
 					return;
 				}
+			//FOOD
 				if( Game.map[Game.headY][Game.headX] === 3 ) {
-					Game.foodX = 0;
-					Game.foodY = 0;
-					Game.foodFlag = 0;
+					Game.snakeTargets.shift();
+					if( Game.snakeTargets.length !== 0 ) {
+						Game.foodX = Game.snakeTargets[0].x;
+						Game.foodY = Game.snakeTargets[0].y;
+					} else {
+						Game.foodX = 0;
+						Game.foodY = 0;
+						Game.foodFlag = 0;
+					}
 					Game.GrowSnake();
+					return;
+				}
+			//RATION
+				if( Game.map[Game.headY][Game.headX] === 4 ) {
+					Game.rationExists = 0;
 					return;
 				}
 				break;
 			case 2: //Left
+			//PLAYER
 				if( Game.map[Game.headY][Game.headX] === 1 ) {
 					Game.headX += 1;
 					return;
 				}
+			//FOOD
 				if( Game.map[Game.headY][Game.headX] === 3 ) {
-					Game.foodX = 0;
-					Game.foodY = 0;
-					Game.foodFlag = 0;
+					Game.snakeTargets.shift();
+					if( Game.snakeTargets.length !== 0 ) {
+						Game.foodX = Game.snakeTargets[0].x;
+						Game.foodY = Game.snakeTargets[0].y;
+					} else {
+						Game.foodX = 0;
+						Game.foodY = 0;
+						Game.foodFlag = 0;
+					}
 					Game.GrowSnake();
+					return;
+				}
+			//RATION
+				if( Game.map[Game.headY][Game.headX] === 4 ) {
+					Game.rationExists = 0;
 					return;
 				}
 				break;
 			case 3: //Right
+			//PLAYER
 				if( Game.map[Game.headY][Game.headX] === 1 ) {
 					Game.headX -= 1;
 					return;					
 				}
+			//FOOD
 				if( Game.map[Game.headY][Game.headX] === 3 ) {
-					Game.foodX = 0;
-					Game.foodY = 0;
-					Game.foodFlag = 0;
+					Game.snakeTargets.shift();
+					if( Game.snakeTargets.length !== 0 ) {
+						Game.foodX = Game.snakeTargets[0].x;
+						Game.foodY = Game.snakeTargets[0].y;
+					} else {
+						Game.foodX = 0;
+						Game.foodY = 0;
+						Game.foodFlag = 0;
+					}
 					Game.GrowSnake();
 					return;					
+				}
+			//RATION
+				if( Game.map[Game.headY][Game.headX] === 4 ) {
+					Game.rationExists = 0;
+					return;
 				}
 				break;
 			default: console.log("ERROR: CollisionCheck - dir out of range"); break;
@@ -510,13 +586,14 @@ var Game = {
 	},
 	
 	Update: function() {
-		//Set Gamespeed
+		//SET GAMESPEED
 		if (Game.gameSpeedChangedFlag) {
 			clearInterval(Game.gameTimer);
 			Game.gameTimer = setInterval(Game.MoveActors, Game.gameSpeeds[Game.gameSpeed]); //Have the game update according to Game.gameSpeeds[Game.gameSpeed] AKA the current speed setting
 			Game.gameSpeedChangedFlag = false;
 		}
 		
+		//UPDATE SCREEN
 		Game.DrawScreen();
 	}
 //### END OF GAME OBJECT FUNCTIONS
@@ -525,10 +602,10 @@ var Game = {
 //### START OF GLOBAL FUNCTIONS
 
 function doResize() {
-	var canvas1 = document.getElementById(CANVAS_GAME_ID);
+	var canvas = document.getElementById(CANVAS_GAME_ID);
 	
 	// Size things
-	UpdateCanvas(canvas1);
+	UpdateCanvas(canvas);
 
 	if ( Game.isInitialized != 0 ) {
 		Game.Update();
